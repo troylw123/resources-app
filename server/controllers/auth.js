@@ -3,6 +3,7 @@ const User = require("../models/user");
 const jwt = require("jsonwebtoken");
 const { JsonWebTokenError } = require("jsonwebtoken");
 const { registerEmailParams } = require("../helpers/email");
+const shortId = require("shortid");
 
 AWS.config.update({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -50,5 +51,70 @@ exports.register = (req, res) => {
           error: `We could not verify your email address. Please try again.`,
         });
       });
+  });
+};
+
+exports.registerActivate = (req, res) => {
+  const { token } = req.body;
+  // console.log(token);
+  jwt.verify(
+    token,
+    process.env.JWT_ACCOUNT_ACTIVATION,
+    function (err, decoded) {
+      if (err) {
+        return res.status(401).json({
+          error: "Expired link. Please try again.",
+        });
+      }
+      const { name, email, password } = jwt.decode(token);
+      const username = shortId.generate();
+
+      User.findOne({ email }).exec((err, user) => {
+        if (user) {
+          return res.status(401).json({
+            error: "That email address is already in use.",
+          });
+        }
+        //create new user
+        const newUser = new User({ username, name, email, password });
+        newUser.save((err, result) => {
+          if (err) {
+            return res.status(401).json({
+              error: "Error saving user in the database.",
+            });
+          }
+          return res.json({
+            message: "Registration completed. Please log in to continue.",
+          });
+        });
+      });
+    }
+  );
+};
+
+exports.login = (req, res) => {
+  const { email, password } = req.body;
+  // find user
+  User.findOne({ email }).exec((error, user) => {
+    if (error || !user) {
+      return res.status(400).json({
+        error: "User with that email address does not exist.",
+      });
+    }
+    //authenticate
+    if (!user.authenticate(password)) {
+      return res.status(400).json({
+        error: "Email and password do not match.",
+      });
+    }
+    //generate token and sent to client
+    const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
+    const { _id, name, email, role } = user;
+    return res.json({
+      token,
+      user: { _id, name, email, role },
+    });
   });
 };
