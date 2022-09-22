@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Layout } from "../components/Layout";
 import axios from "axios";
+import { showSuccessMessage, showErrorMessage } from "../helpers/alerts";
 
 const Register = () => {
   const [state, setState] = useState({
@@ -24,17 +25,30 @@ const Register = () => {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // console.table({ name, email, password });
-    axios
-      .post(`http://localhost:8000/api/register`, {
+    setState({ ...state, buttonText: "Registering" });
+    try {
+      const response = await axios.post(`http://localhost:8000/api/register`, {
         name,
         email,
         password,
-      })
-      .then((response) => console.log(response))
-      .catch((error) => console.log(error));
+      });
+      setState({
+        ...state,
+        name: "",
+        email: "",
+        password: "",
+        buttonText: "Submitted",
+        success: response.data.message,
+      });
+    } catch (error) {
+      setState({
+        ...state,
+        buttonText: "Register",
+        error: error.response.data.error,
+      });
+    }
   };
 
   const registerForm = () => (
@@ -74,9 +88,11 @@ const Register = () => {
 
   return (
     <Layout>
+      <h1>Register</h1>
+      <br />
+      {success && showSuccessMessage(success)}
+      {error && showErrorMessage(error)}
       <div className="col-md-4 offset-md-3">
-        <h1>Register</h1>
-        <br />
         {registerForm()}
         <hr />
         {JSON.stringify(state)}
