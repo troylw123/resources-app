@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import NProgress from "nprogress";
@@ -13,6 +13,16 @@ export const Layout = (props) => {
     router.events.on("routeChangeComplete", () => NProgress.done());
     router.events.on("routeChangeError", () => NProgress.done());
   }, []);
+
+  //found this code on stack overflow, fixes hydration errors (client html doesn't match server)
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+  if (!hydrated) {
+    // Returns null on first render, so the client and server match
+    return null;
+  }
 
   const head = () => (
     <React.Fragment>
@@ -51,14 +61,14 @@ export const Layout = (props) => {
       {isAuth() && isAuth().role === "admin" && (
         <li className="nav-item ms-auto">
           <Link href="/admin">
-            <a className="nav-link text-dark">Admin</a>
+            <a className="nav-link">{isAuth().name}</a>
           </Link>
         </li>
       )}
       {isAuth() && isAuth().role === "subscriber" && (
         <li className="nav-item ms-auto">
           <Link href="/user">
-            <a className="nav-link text-dark">User</a>
+            <a className="nav-link">{isAuth().name}</a>
           </Link>
         </li>
       )}
