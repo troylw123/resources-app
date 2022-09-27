@@ -89,7 +89,9 @@ const Login = () => {
       {error && showErrorMessage(error)}
       <div className="col-md-4 offset-md-3">
         {LoginForm()}
-        <hr />
+        <Link href="/auth/password/forgot">
+          <a className="text-danger float-end">Forgot Password?</a>
+        </Link>
       </div>
     </Layout>
   );
