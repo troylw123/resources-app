@@ -127,6 +127,7 @@ exports.login = (req, res) => {
 exports.requireSignIn = expressJwt({
   secret: process.env.JWT_SECRET,
   algorithms: ["HS256"],
+  userProperty: "auth",
 }); //req.user
 
 exports.authMiddleware = (req, res, next) => {
