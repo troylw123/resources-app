@@ -1,24 +1,64 @@
 const Category = require('../models/category');
 const slugify = require('slugify');
+const formidable = require('formidable');
+const AWS = require('aws-sdk');
+const { v4: uuidv4 } = require('uuid');
+const { response } = require('express');
+const fs = require('fs');
+
+// s3
+const s3 = new AWS.S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION,
+});
+
 
 exports.create = (req, res) => {
-    const { name, content } = req.body
-    const slug = slugify(name)
-    const image = {
-        url: 'https://images.pexels.com/photos/5490795/pexels-photo-5490795.jpeg?auto=compress&cs=tinysrgb&w=400',
-        key: '123'
-    }
-
-    const category = new Category({ name, slug, image })
-    category.postedBy = req.auth._id
-    category.save((err, data) => {
+    let form = new formidable.IncomingForm()
+    form.parse(req, (err, fields, files) => {
         if (err) {
-            console.log('Category create error', err)
             return res.status(400).json({
-                error: 'Category create failed'
+                error: 'Image could not upload'
             })
         }
-        res.json(data);
+        console.table({ err, fields, files })
+        const { name, content } = fields
+        const { image } = files
+
+        const slug = slugify(name)
+        let category = new Category({ name, content, slug })
+
+        if (image.size > 5000000) {
+            return res.status(400).json({
+                error: "Image should be less than 5 MB."
+            })
+        }
+
+        // upload image to s3
+        const params = {
+            Bucket: 'troy-resources-app',
+            Key: `category/${uuidv4()}`,
+            Body: fs.readFileSync(image.filepath),
+            ACL: 'public-read',
+            ContentType: 'image/jpg'
+        };
+
+        s3.upload(params, (err, data) => {
+            if (err) {
+                console.log(err)
+                return res.status(400).json({
+                    error: 'Upload to s3 failed'
+                })
+            }
+            category.image.url = data.Location
+            // category.image.key = data.Key (was creating duplicate images)
+
+            category.save((err, success) => {
+                if (err) res.status(400).json({ error: 'This category already exists.' })
+                return res.json(success)
+            })
+        })
     })
 };
 
