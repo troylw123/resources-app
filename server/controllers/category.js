@@ -13,57 +13,50 @@ const s3 = new AWS.S3({
     region: process.env.AWS_REGION,
 });
 
-
 exports.create = (req, res) => {
-    let form = new formidable.IncomingForm()
-    form.parse(req, (err, fields, files) => {
+    const { name, image, content } = req.body
+    const base64Data = new Buffer.from(image.replace(/^data:image\/\w+;base64,/, ''), 'base64')
+    const type = image.split(';')[0].split('/')[1]
+
+    const slug = slugify(name)
+    let category = new Category({ name, content, slug })
+
+    const params = {
+        Bucket: 'troy-resources-app',
+        Key: `category/${uuidv4()}.${type}`,
+        Body: base64Data,
+        ACL: 'public-read',
+        ContentEncoding: 'base64',
+        ContentType: `image/${type}`
+    };
+
+    s3.upload(params, (err, data) => {
         if (err) {
+            console.log(err)
             return res.status(400).json({
-                error: 'Image could not upload'
+                error: 'Upload to s3 failed'
             })
         }
-        console.table({ err, fields, files })
-        const { name, content } = fields
-        const { image } = files
+        category.image.url = data.Location
+        // category.image.key = data.Key (was creating duplicate images)
+        category.postedBy = req.auth._id;
 
-        const slug = slugify(name)
-        let category = new Category({ name, content, slug })
-
-        if (image.size > 5000000) {
-            return res.status(400).json({
-                error: "Image should be less than 5 MB."
-            })
-        }
-
-        // upload image to s3
-        const params = {
-            Bucket: 'troy-resources-app',
-            Key: `category/${uuidv4()}`,
-            Body: fs.readFileSync(image.filepath),
-            ACL: 'public-read',
-            ContentType: 'image/jpg'
-        };
-
-        s3.upload(params, (err, data) => {
-            if (err) {
-                console.log(err)
-                return res.status(400).json({
-                    error: 'Upload to s3 failed'
-                })
-            }
-            category.image.url = data.Location
-            // category.image.key = data.Key (was creating duplicate images)
-
-            category.save((err, success) => {
-                if (err) res.status(400).json({ error: 'This category already exists.' })
-                return res.json(success)
-            })
+        category.save((err, success) => {
+            if (err) res.status(400).json({ error: 'This category already exists.' })
+            return res.json(success)
         })
     })
 };
 
 exports.list = (req, res) => {
-
+    Category.find({}).exec((err, data) => {
+        if (err) {
+            return res.status(400).json({
+                error: 'Categories could not load'
+            })
+        }
+        res.json(data);
+    })
 };
 
 exports.read = (req, res) => {

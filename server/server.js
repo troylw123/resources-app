@@ -20,7 +20,7 @@ const categoryRoutes = require("./routes/category");
 
 //middleware
 app.use(morgan("dev"));
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '5mb', type: 'application/json' }));
 // uses cors to only allow access from one domain
 app.use(cors({ origin: process.env.CLIENT_URL }));
 
