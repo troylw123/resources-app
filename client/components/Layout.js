@@ -42,10 +42,15 @@ export const Layout = (props) => {
           <a className="nav-link">Home</a>
         </Link>
       </li>
+      <li className="nav-item hover-dark">
+        <Link href="/user/link/create">
+          <a className="nav-link">Submit A Link</a>
+        </Link>
+      </li>
 
       {!isAuth() && (
         <React.Fragment>
-          <li className="nav-item">
+          <li className="nav-item ms-auto">
             <Link href="/login">
               <a className="nav-link">Login</a>
             </Link>

@@ -15,7 +15,7 @@ const { create, list, read, update, remove } = require("../controllers/category"
 
 router.post("/category", categoryCreateValidator, requireSignIn, adminMiddleware, create);
 router.get("/categories", list);
-router.get("/category/:slug", read);
+router.post("/category/:slug", read);
 router.put("/category/:slug", requireSignIn, categoryUpdateValidator, runValidation, adminMiddleware, update);
 router.delete("/category/:slug", requireSignIn, adminMiddleware, remove);
 
