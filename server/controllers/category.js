@@ -44,7 +44,7 @@ exports.create = (req, res) => {
 
         category.save((err, success) => {
             if (err) res.status(400).json({ error: 'This category already exists.' })
-            return res.json(success)
+            res.json(success)
         })
     })
 };
@@ -78,8 +78,8 @@ exports.read = (req, res) => {
                 .populate('postedBy', '_id name username')
                 .populate('categories', 'name')
                 .sort({ createdAt: -1 })
-                .limit()
-                .skip()
+                .limit(limit)
+                .skip(skip)
                 .exec((err, links) => {
                     if (err) {
                         return res.status(400).json({
@@ -92,9 +92,90 @@ exports.read = (req, res) => {
 };
 
 exports.update = (req, res) => {
+    const { slug } = req.params
+    const { name, image, content } = req.body
 
+    Category.findOneAndUpdate({ slug }, { name, content }, { new: true }).exec((err, updated) => {
+        if (err) {
+            return res.status(400).json({
+                error: 'Could not find category to update'
+            })
+        }
+        console.log("updated", updated)
+        if (image) {
+            //remove existing image from s3 before adding new one
+            const deleteParams = {
+                Bucket: 'troy-resources-app',
+                Key: `${updated.image.key}`,
+            };
+            s3.deleteObject(deleteParams, function (err, data) {
+                if (err) {
+                    console.log('S3 Delete Error During Update', err)
+                }
+                else {
+                    console.log('S3 deleted during update', data)
+                }
+            })
+
+            const params = {
+                Bucket: 'troy-resources-app',
+                Key: `category/${uuidv4()}.${type}`,
+                Body: base64Data,
+                ACL: 'public-read',
+                ContentEncoding: 'base64',
+                ContentType: `image/${type}`
+            };
+
+            s3.upload(params, (err, data) => {
+                if (err) {
+                    console.log(err)
+                    return res.status(400).json({
+                        error: 'Upload to s3 failed'
+                    })
+                }
+                updated.image.url = data.Location
+                // category.image.key = data.Key (was creating duplicate images)
+                updated.postedBy = req.auth._id;
+
+                updated.save((err, success) => {
+                    if (err) res.status(400).json({ error: 'This category already exists.' })
+                    res.json(success)
+                })
+            })
+        } else {
+            res.json(updated)
+        }
+
+    })
 };
 
 exports.remove = (req, res) => {
+    const { slug } = req.params
 
+    Category.findOneAndRemove({ slug }).exec((err, data) => {
+        if (err) {
+            console.log(err)
+            return res.status(400).json({
+                error: 'Could not find category to delete'
+            })
+        }
+
+        const key = data.image.url.split('.com/')[1]
+        const deleteParams = {
+            Bucket: 'troy-resources-app',
+            Key: key,
+        };
+        console.log('deleteParams', deleteParams)
+        s3.deleteObject(deleteParams, function (err, data) {
+            if (err) {
+                console.log('S3 Delete Error', err)
+            }
+            else {
+                console.log('S3 deleted successfully', data)
+            }
+        })
+        res.json({
+            message: 'Category deleted successfully'
+        })
+    })
 };
