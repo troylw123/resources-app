@@ -105,7 +105,6 @@ const Register = () => {
       <div className="col-md-4 offset-md-3">
         {registerForm()}
         <hr />
-        {JSON.stringify(state)}
       </div>
     </Layout>
   );
